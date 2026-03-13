@@ -479,7 +479,7 @@
                              label="出生日期">
             </el-table-column>
             <el-table-column prop="idcard"
-                             width="150"
+                             width="180"
                              align="left"
                              label="身份证号码">
             </el-table-column>
@@ -494,7 +494,7 @@
                              label="民族">
             </el-table-column>
             <el-table-column prop="nativeplace"
-                             width="100"
+                             width="60"
                              align="center"
                              label="籍贯">
             </el-table-column>
@@ -507,7 +507,7 @@
                              label="电子邮件">
             </el-table-column>
             <el-table-column prop="phone"
-                             width="100"
+                             width="120"
                              align="left"
                              label="电话号码">
             </el-table-column>
