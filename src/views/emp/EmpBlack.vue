@@ -154,13 +154,13 @@
                              align="left"
                              label="加入黑名单原因">
             </el-table-column>
-            <el-table-column prop="sourceDepartment"
+            <el-table-column prop="departName"
                              width="100"
                              align="left"
                              label="所属部门">
             </el-table-column>
-            <el-table-column prop="addTime"
-                             width="125"
+            <el-table-column prop="addtime"
+                             width="155"
                              align="left"
                              label="加入黑名单日期">
             </el-table-column>
