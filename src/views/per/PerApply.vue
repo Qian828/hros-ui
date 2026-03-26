@@ -22,7 +22,7 @@
       <div style="display: flex;justify-content: flex-end">
 
         <!--add 弹窗-->
-        <el-dialog title="员工调动"
+        <el-dialog title="员工晋升申请"
                    center
                    :visible.sync="dialogVisible"
                    width="30%">
@@ -31,7 +31,7 @@
                      :rules="rules"
                      ref="empForm">
 
-              <el-form-item label="调动职位:"
+              <el-form-item label="晋升职位:"
                             prop="posid">
                 <el-select v-model="emp.posid"
                            placeholder="职位"
@@ -45,7 +45,7 @@
               </el-form-item>
 
 
-              <el-form-item label="调动职称:"
+              <el-form-item label="晋升职称:"
                             prop="joblevelid">
                 <el-select v-model="emp.joblevelid"
                            placeholder="职称"
@@ -159,10 +159,6 @@
                              label="入职日期">
             </el-table-column>
 
-            <el-table-column prop="begincontract"
-                             align="left"
-                             label="合同起始日期">
-            </el-table-column>
 
             <el-table-column width="200"
                              align="center"
@@ -170,7 +166,7 @@
               <template slot-scope="scope">
                 <el-button type="primary"
                            @click="showEditEmpView(scope.row)"
-                           style="padding: 3px">调 动
+                           style="padding: 3px">晋升申请
                 </el-button>
               </template>
             </el-table-column>
@@ -282,14 +278,14 @@ export default {
   },
   methods: {
 
-tableRowClassName({row, rowIndex}) {
-        if (rowIndex === 1) {
-          return 'warning-row';
-        } else if (rowIndex === 3) {
-          return 'success-row';
-        }
-        return '';
-      },
+    tableRowClassName({row, rowIndex}) {
+      if (rowIndex === 1) {
+        return 'warning-row';
+      } else if (rowIndex === 3) {
+        return 'success-row';
+      }
+      return '';
+    },
     handleSelectionChange (val) {
       this.multipleSelection = val;
     },
@@ -303,7 +299,7 @@ tableRowClassName({row, rowIndex}) {
     filert (ids) {
       return this.joblevels.filter(item => {
         if (item.id === ids) {
-              return item.name;
+          return item.name;
         }      });
 
     },
@@ -457,14 +453,14 @@ tableRowClassName({row, rowIndex}) {
         url += "&name=" + this.keyword;
       }
       /*数据 返回*/
-        this.$notify.success({
-              title: '系统讯息',
-              message: ' 调 动 信 息 加 载 中...',
-              showClose: false,
-              offset: 100,
-              duration: 1500,
-              customClass: 'fontclass'
-            });
+      this.$notify.success({
+        title: '系统讯息',
+        message: ' 调 动 信 息 加 载 中...',
+        showClose: false,
+        offset: 100,
+        duration: 1500,
+        customClass: 'fontclass'
+      });
       this.getRequest(url).then(resp => {
         this.loading = false;
         if (resp) {
@@ -520,21 +516,21 @@ tableRowClassName({row, rowIndex}) {
 }
 
 .slide-fade-enter, .slide-fade-leave-to
-        /* .slide-fade-leave-active for below version 2.1.8 */
- {
+  /* .slide-fade-leave-active for below version 2.1.8 */
+{
   transform: translateX(10px);
   opacity: 0;
 }
 .demo-table-expand {
   font-size: 0;
 }
- .el-table .warning-row {
-    background: oldlace;
-  }
+.el-table .warning-row {
+  background: oldlace;
+}
 
-  .el-table .success-row {
-    background: #f0f9eb;
-  }
+.el-table .success-row {
+  background: #f0f9eb;
+}
 .demo-table-expand label {
   width: 90px;
   color: #99a9bf;
