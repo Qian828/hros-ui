@@ -24,7 +24,7 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="晋升职称" prop="newJobId">
+        <el-form-item label="晋升职称" prop="newJobLevelId">
           <el-select v-model="promote.newJobLevelId" placeholder="请选择晋升职称" style="width: 180px">
             <el-option v-for="item in joblevels" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
@@ -48,7 +48,7 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="晋升理由">
+        <el-form-item label="晋升理由" prop="reason">
           <el-input
                   type="textarea"
                   v-model="promote.reason"
@@ -66,6 +66,23 @@
       </div>
     </el-dialog>
 
+    <!-- ========== 新增：审批意见弹窗 ========== -->
+    <el-dialog title="审批意见" :visible.sync="approvalDialogVisible" width="30%">
+      <el-form :model="approvalForm" label-width="80px">
+        <el-form-item label="审批意见">
+          <el-input
+                  v-model="approvalForm.remark"
+                  type="textarea"
+                  rows="5"
+                  placeholder="请填写审批意见（必填）"
+          ></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="approvalDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitApproval">确认提交</el-button>
+      </div>
+    </el-dialog>
     <!-- 晋升记录列表 -->
     <div class="content-style" style="margin-top:10px;">
       <el-table
@@ -76,19 +93,49 @@
               v-loading="loading"
               style="width:100%"
       >
-        <el-table-column label="姓名" prop="applyName" />
+        <el-table-column label="申请人" prop="applyName" />
         <el-table-column label="原职位" prop="oldPosName" />
         <el-table-column label="申请晋升职位" prop="newPosName" />
         <el-table-column label="原职称" prop="oldJobName" />
         <el-table-column label="申请晋升职称" prop="newJobName" />
         <el-table-column label="审批人" prop="approverName" />
-        <el-table-column label="申请理由" prop="reason" />
+        <el-table-column label="申请理由" width="200" prop="reason" />
         <el-table-column label="申请时间" prop="applyTime" />
         <el-table-column label="审批状态">
           <template slot-scope="scope">
             <el-tag :type="scope.row.status === 0 ? 'warning' : scope.row.status === 1 ? 'success' : 'danger'">
               {{ scope.row.status === 0 ? '待审批' : scope.row.status === 1 ? '已通过' : '已拒绝' }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" fixed="right" width="150">
+          <template slot-scope="scope">
+            <!-- 🔹 我是审批人（approverId === 当前登录人ID）：显示 通过 / 拒绝 -->
+            <el-button
+                    v-if="scope.row.approverId === promote.empId && scope.row.status === 0"
+                    type="success"
+                    style="padding: 3px"
+                    @click="handlePreApprove(scope.row, 1)"
+            >
+              通过
+            </el-button>
+            <el-button
+                    v-if="scope.row.approverId === promote.empId && scope.row.status === 0"
+                    type="danger"
+                    style="padding: 3px"
+                    @click="handlePreApprove(scope.row, 2)"
+            >
+              拒绝
+            </el-button>
+            <!-- 🔹 我是申请人（自己的申请）且待审批：显示 删除 -->
+            <el-button
+                    v-else-if="scope.row.empId === promote.empId && scope.row.status === 0"
+                    type="danger"
+                    style="padding: 3px"
+                    @click="handleDelete(scope.row)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -137,6 +184,15 @@
           approverName: "",
           reason: ""
         },
+        approvalDialogVisible: false, // 审批弹窗
+        approvalForm: { // 审批表单
+          id: '',
+          empId:'',
+          status: '',
+          newPosId: "",
+          newJobLevelId: "",
+          remark: ''
+        },
         rules: {
           newPosId: [{ required: true, message: "请选择晋升职位", trigger: "change" }],
           newJobLevelId: [{ required: true, message: "请选择晋升职称", trigger: "change" }],
@@ -150,6 +206,51 @@
       this.getMyPromotionList();
     },
     methods: {
+      // 1. 打开审批弹窗（准备通过/拒绝）
+      handlePreApprove(row, status) {
+        this.approvalForm.id = row.id; // 赋值申请ID
+        this.approvalForm.empId = row.empId;
+        this.approvalForm.newPosId = row.newPosId;
+        this.approvalForm.newJobLevelId = row.newJobLevelId;
+        this.approvalForm.status = status; // 1=通过，2=拒绝
+        this.approvalForm.remark = ''; // 清空上次内容
+        this.approvalDialogVisible = true; // 打开弹窗
+      },
+
+// 2. 最终提交审批
+      submitApproval() {
+        if (!this.approvalForm.remark) {
+          this.$message.warning('请填写审批意见！');
+          return;
+        }
+
+        // 调用接口
+        this.postRequest(`/employee/promotion/update/`, {
+          id:this.approvalForm.id,
+          empId:this.approvalForm.empId,
+          status: this.approvalForm.status,
+          approveRemark: this.approvalForm.remark, // 把原因传给后端
+          newPosId: this.approvalForm.newPosId,
+          newJobLevelId: this.approvalForm.newJobLevelId,
+        }).then(res => {
+          this.$message.success('审核成功！');
+          this.approvalDialogVisible = false;
+          this.getMyPromotionList(); // 刷新列表
+        });
+      },
+
+      handleDelete(row) {
+        this.$confirm('确定要删除这条待审批的晋升申请吗？', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }).then(() => {
+          /*this.deleteRequest(`/employee/promotion/delete/${row.id}`).then(res => {
+            this.$message.success('删除成功！');
+            this.getMyPromotionList(); // 刷新列表
+          });*/
+        }).catch(() => {});
+      },
       // 加载所有基础数据
       loadBaseData() {
         this.getRequest("/employee/basic/positions").then(res => this.positions = res);
@@ -159,6 +260,15 @@
 
       // 打开弹窗
       showApplyDialog() {
+        const hasPendingApply = this.promoteList.some(item =>
+                item.empId === this.promote.empId && item.status === 0
+        );
+
+        // 如果有待审批，直接提示并返回，不打开弹窗
+        if (hasPendingApply) {
+          this.$message.warning('你已有待审批的晋升申请，不可重复提交！');
+          return;
+        }
 
         this.getRequest('/employee/basic/?page=1&size=1&id='+this.promote.empId).then(resp => {
           if (resp) {
