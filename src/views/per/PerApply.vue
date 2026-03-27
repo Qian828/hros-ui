@@ -15,7 +15,7 @@
         </el-form-item>
 
         <el-form-item label="当前职称">
-          <el-input v-model="promote.oldJobName" disabled style="width: 180px" />
+          <el-input v-model="promote.oldJobLevelName" disabled style="width: 180px" />
         </el-form-item>
 
         <el-form-item label="晋升职位" prop="newPosId">
@@ -25,17 +25,11 @@
         </el-form-item>
 
         <el-form-item label="晋升职称" prop="newJobId">
-          <el-select v-model="promote.newJobId" placeholder="请选择晋升职称" style="width: 180px">
+          <el-select v-model="promote.newJobLevelId" placeholder="请选择晋升职称" style="width: 180px">
             <el-option v-for="item in joblevels" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </el-form-item>
 
-        <!-- 👇 这里新加：审批人选择框
-        <el-form-item label="审批人" prop="approverId">
-          <el-select v-model="promote.approverId" placeholder="请选择审批人" style="width: 180px">
-            <el-option v-for="item in approvers" :key="item.id" :label="item.name" :value="item.id" />
-          </el-select>
-        </el-form-item>-->
         <el-form-item label="审批人" prop="approverId">
           <el-select
                   v-model="promote.approverId"
@@ -48,7 +42,7 @@
             <el-option
                     v-for="item in approvers"
                     :key="item.id"
-                    :label="`${item.name} | ${item.department.name} | 工号:${item.workid}`"
+                    :label="`${item.name} | ${item.department.name} | ${item.position.name}`"
                     :value="item.id"
             />
           </el-select>
@@ -82,6 +76,7 @@
               v-loading="loading"
               style="width:100%"
       >
+        <el-table-column label="姓名" prop="applyName" />
         <el-table-column label="原职位" prop="oldPosName" />
         <el-table-column label="申请晋升职位" prop="newPosName" />
         <el-table-column label="原职称" prop="oldJobName" />
@@ -134,17 +129,17 @@
           oldPosName: "",
           newPosId: "",
           newPosName: "",
-          oldJobId: "",
-          oldJobName: "",
-          newJobId: "",
-          newJobName: "",
+          oldJobLevelId: "",
+          oldJobLevelName: "",
+          newJobLevelId: "",
+          newJobLevelName: "",
           approverId: "", // 审批人ID
           approverName: "",
           reason: ""
         },
         rules: {
           newPosId: [{ required: true, message: "请选择晋升职位", trigger: "change" }],
-          newJobId: [{ required: true, message: "请选择晋升职称", trigger: "change" }],
+          newJobLevelId: [{ required: true, message: "请选择晋升职称", trigger: "change" }],
           approverId: [{ required: true, message: "请选择审批人", trigger: "change" }],
           reason: [{ required: true, message: "请填写晋升理由", trigger: "blur" }]
         }
@@ -164,7 +159,20 @@
 
       // 打开弹窗
       showApplyDialog() {
-        this.promote = {};
+
+        this.getRequest('/employee/basic/?page=1&size=1&id='+this.promote.empId).then(resp => {
+          if (resp) {
+            let emp = resp.data[0];
+            // 2. 自动带入当前职位和职称
+            this.promote.oldPosId = emp.position.id;
+            this.promote.oldPosName = emp.position.name;
+            this.promote.oldJobLevelId = emp.jobLevel.id;
+            this.promote.oldJobLevelName = emp.jobLevel.name;
+
+          }
+
+        });
+
         this.dialogVisible = true;
       },
 
@@ -172,7 +180,32 @@
       submitPromote() {
         this.$refs.promoteForm.validate(valid => {
           if (valid) {
-            this.postRequest("/promotion/apply", this.promote).then(res => {
+            // =========== 业务判断条件 ===========
+            // 1. 不能和原职位一样
+            if (this.promote.oldPosId === this.promote.newPosId) {
+              this.$message.error('晋升职位不能与当前职位相同！');
+              return;
+            }
+
+            // 2. 不能和原职称一样
+            if (this.promote.oldJobLevelId === this.promote.newJobLevelId) {
+              this.$message.error('晋升职称不能与当前职称相同！');
+              return;
+            }
+
+            // 3. 必须填理由
+            if (!this.promote.reason || this.promote.reason.trim() === '') {
+              this.$message.error('请填写晋升理由！');
+              return;
+            }
+
+            // 4. 必须选审批人
+            if (!this.promote.approverId) {
+              this.$message.error('请选择审批人！');
+              return;
+            }
+
+            this.postRequest("/employee/promotion/add", this.promote).then(res => {
               this.$notify.success("晋升申请提交成功！");
               this.dialogVisible = false;
               this.getMyPromotionList();
@@ -183,12 +216,15 @@
 
       // 获取自己的晋升记录
       getMyPromotionList() {
-        /*this.loading = true;
-        this.getRequest(`/promotion/myList?page=${this.page}&size=${this.size}`).then(res => {
+        // 取当前登录用户
+        let user = JSON.parse(sessionStorage.getItem('user'));
+        this.promote.empId = user.employeeId;
+        this.loading = true;
+        this.getRequest(`/employee/promotion/?page=${this.page}&size=${this.size}&empId=`+this.promote.empId).then(res => {
           this.promoteList = res.data;
           this.total = res.total;
           this.loading = false;
-        });*/
+        });
       },
 
       sizeChange(val) {
