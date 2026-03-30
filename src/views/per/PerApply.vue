@@ -93,22 +93,32 @@
               v-loading="loading"
               style="width:100%"
       >
-        <el-table-column label="申请人" prop="applyName" />
-        <el-table-column label="原职位" prop="oldPosName" />
-        <el-table-column label="申请晋升职位" prop="newPosName" />
-        <el-table-column label="原职称" prop="oldJobName" />
-        <el-table-column label="申请晋升职称" prop="newJobName" />
-        <el-table-column label="审批人" prop="approverName" />
-        <el-table-column label="申请理由" width="200" prop="reason" />
-        <el-table-column label="申请时间" prop="applyTime" />
-        <el-table-column label="审批状态">
+        <el-table-column label="申请人" prop="applyName"  width="100"/>
+        <el-table-column label="原职位" prop="oldPosName"  width="100"/>
+        <el-table-column label="申请晋升职位" prop="newPosName"  width="120"/>
+        <el-table-column label="原职称" prop="oldJobName"  width="100"/>
+        <el-table-column label="申请晋升职称" prop="newJobName"  width="120"/>
+        <el-table-column label="审批人" prop="approverName" width="100"/>
+        <el-table-column label="申请理由" width="210" prop="reason"  />
+        <el-table-column label="申请时间" prop="applyTime" width="160"/>
+        <el-table-column label="审核时间" width="160">
+          <template slot-scope="scope">
+            {{ scope.row.approveTime || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="审核意见" prop="approveRemark" width="210">
+          <template slot-scope="scope">
+            {{ scope.row.approveRemark || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="审批状态"  width="100">
           <template slot-scope="scope">
             <el-tag :type="scope.row.status === 0 ? 'warning' : scope.row.status === 1 ? 'success' : 'danger'">
               {{ scope.row.status === 0 ? '待审批' : scope.row.status === 1 ? '已通过' : '已拒绝' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="150">
+        <el-table-column label="操作" fixed="right" width="120">
           <template slot-scope="scope">
             <!-- 🔹 我是审批人（approverId === 当前登录人ID）：显示 通过 / 拒绝 -->
             <el-button
@@ -245,10 +255,10 @@
           cancelButtonText: '取消',
           type: 'warning'
         }).then(() => {
-          /*this.deleteRequest(`/employee/promotion/delete/${row.id}`).then(res => {
+          this.deleteRequest("/employee/promotion/"+row.id).then(res => {
             this.$message.success('删除成功！');
             this.getMyPromotionList(); // 刷新列表
-          });*/
+          });
         }).catch(() => {});
       },
       // 加载所有基础数据
@@ -270,9 +280,9 @@
           return;
         }
 
-        this.getRequest('/employee/basic/?page=1&size=1&id='+this.promote.empId).then(resp => {
+        this.getRequest('/employee/basic/findOne?id='+this.promote.empId).then(resp => {
           if (resp) {
-            let emp = resp.data[0];
+            let emp = resp;
             // 2. 自动带入当前职位和职称
             this.promote.oldPosId = emp.position.id;
             this.promote.oldPosName = emp.position.name;
@@ -284,6 +294,12 @@
         });
 
         this.dialogVisible = true;
+        // ✅ 关键：打开弹窗后，立即清除校验提示（必须放在这里！）
+        this.$nextTick(() => {
+          if (this.$refs.promoteForm) {
+            this.$refs.promoteForm.clearValidate();
+          }
+        });
       },
 
       // 提交晋升申请
@@ -291,15 +307,14 @@
         this.$refs.promoteForm.validate(valid => {
           if (valid) {
             // =========== 业务判断条件 ===========
-            // 1. 不能和原职位一样
-            if (this.promote.oldPosId === this.promote.newPosId) {
-              this.$message.error('晋升职位不能与当前职位相同！');
-              return;
-            }
 
-            // 2. 不能和原职称一样
-            if (this.promote.oldJobLevelId === this.promote.newJobLevelId) {
-              this.$message.error('晋升职称不能与当前职称相同！');
+
+            const posChanged = this.promote.newPosId !== this.promote.oldPosId;
+            const jobChanged = this.promote.newJobLevelId !== this.promote.oldJobLevelId;
+
+            // 2. 如果两个都没变化 → 拦截
+            if (!posChanged && !jobChanged) {
+              this.$message.error("职位和职级至少需要修改一项！");
               return;
             }
 
@@ -318,6 +333,20 @@
             this.postRequest("/employee/promotion/add", this.promote).then(res => {
               this.$notify.success("晋升申请提交成功！");
               this.dialogVisible = false;
+              this.promote = {
+                oldPosId: "",
+                oldPosName: "",
+                newPosId: "",
+                newPosName: "",
+                oldJobLevelId: "",
+                oldJobLevelName: "",
+                newJobLevelId: "",
+                newJobName: "",
+                approverId: "",
+                approverName: "",
+                reason: ""
+              };
+
               this.getMyPromotionList();
             });
           }
@@ -330,7 +359,7 @@
         let user = JSON.parse(sessionStorage.getItem('user'));
         this.promote.empId = user.employeeId;
         this.loading = true;
-        this.getRequest(`/employee/promotion/?page=${this.page}&size=${this.size}&empId=`+this.promote.empId).then(res => {
+        this.getRequest(`/employee/promotion/?page=${this.page}&size=${this.size}&empId=`+(user.employeeId || '')).then(res => {
           this.promoteList = res.data;
           this.total = res.total;
           this.loading = false;
