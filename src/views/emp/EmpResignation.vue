@@ -10,12 +10,8 @@
     <el-dialog title="员工离职申请" center :visible.sync="dialogVisible" width="40%">
       <el-form :model="resign" :rules="rules" ref="resignForm" label-width="110px">
         <el-form-item label="申请人">
-          <el-input v-model="resign.oldPosName" disabled style="width: 180px" />
+          <el-input v-model="resign.empName" disabled style="width: 180px" />
         </el-form-item>
-
-<!--        <el-form-item label="当前职称">
-          <el-input v-model="resign.oldJobLevelName" disabled style="width: 180px" />
-        </el-form-item>-->
 
         <el-form-item label="离职类型" prop="resignType">
           <el-select v-model="resign.resignType" placeholder="请选择离职类型" style="width: 180px">
@@ -69,16 +65,9 @@
     </el-dialog>
 
     <!-- 审批意见弹窗 -->
-    <el-dialog title="审批意见" :visible.sync="approvalDialogVisible" width="30%">
-      <el-form :model="approvalForm" label-width="80px">
-        <el-form-item label="审批意见">
-          <el-input
-              v-model="approvalForm.remark"
-              type="textarea"
-              rows="5"
-              placeholder="请填写审批意见（必填）"
-          ></el-input>
-        </el-form-item>
+    <el-dialog title="离职审批" :visible.sync="approvalDialogVisible" width="30%">
+
+      <el-form :model="approvalForm" :rules="approvalRules"  label-width="150px">
         <el-form-item label="实际离职日期" prop="actualResignDate" v-if="approvalForm.status === 1">
           <el-date-picker
               v-model="approvalForm.actualResignDate"
@@ -88,6 +77,15 @@
               value-format="yyyy-MM-dd"
           />
         </el-form-item>
+        <el-form-item label="审批意见">
+          <el-input
+              v-model="approvalForm.approveRemark"
+              type="textarea"
+              rows="5"
+              placeholder="请填写审批意见（必填）"
+          ></el-input>
+        </el-form-item>
+
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button @click="approvalDialogVisible = false">取消</el-button>
@@ -106,16 +104,15 @@
           style="width:100%"
       >
         <el-table-column label="申请人" prop="applyName" width="100"/>
-        <el-table-column label="原职位" prop="oldPosName" width="100"/>
         <el-table-column label="离职类型" width="100">
           <template slot-scope="scope">
             {{ scope.row.resignType === 1 ? '主动离职' : '被动离职' }}
           </template>
         </el-table-column>
         <el-table-column label="期望离职日期" prop="expectResignDate" width="130"/>
-        <el-table-column label="审批人" prop="approverName" width="100"/>
         <el-table-column label="离职原因" width="210" prop="resignReason" />
         <el-table-column label="申请时间" prop="createTime" width="160"/>
+        <el-table-column label="审批人" prop="approverName" width="100"/>
         <el-table-column label="审核时间" width="160">
           <template slot-scope="scope">
             {{ scope.row.approveTime || '-' }}
@@ -200,10 +197,7 @@ export default {
       resign: {
         id: "",
         empId: "",
-        oldPosId: "",
-        oldPosName: "",
-        oldJobLevelId: "",
-        oldJobLevelName: "",
+        empName:"",
         resignType: "", // 1主动 2被动
         expectResignDate: "",
         resignReason: "",
@@ -215,7 +209,7 @@ export default {
         id: '',
         empId: '',
         status: '',
-        remark: '',
+        approveRemark: '',
         actualResignDate: ''
       },
       rules: {
@@ -223,6 +217,10 @@ export default {
         approverId: [{ required: true, message: "请选择审批人", trigger: "change" }],
         expectResignDate: [{ required: true, message: "请选择期望离职日期", trigger: "change" }],
         resignReason: [{ required: true, message: "请填写离职原因", trigger: "blur" }]
+      },
+      approvalRules: {
+        actualResignDate: [{ required: true, message: "请选择实际离职日期", trigger: "change" }],
+        approveRemark: [{ required: true, message: "请填写审批意见", trigger: "blur" }]
       }
     };
   },
@@ -236,14 +234,16 @@ export default {
       this.approvalForm.id = row.id;
       this.approvalForm.empId = row.empId;
       this.approvalForm.status = status;
-      this.approvalForm.remark = '';
+      this.approvalForm.approveRemark = '';
       this.approvalForm.actualResignDate = '';
+      // 自动回填：实际离职日期 = 期望离职日期
+      this.approvalForm.actualResignDate = status === 1 ? row.expectResignDate : "";
       this.approvalDialogVisible = true;
     },
 
     // 提交审批
     submitApproval() {
-      if (!this.approvalForm.remark) {
+      if (!this.approvalForm.approveRemark) {
         this.$message.warning('请填写审批意见！');
         return;
       }
@@ -256,10 +256,9 @@ export default {
         id: this.approvalForm.id,
         empId: this.approvalForm.empId,
         status: this.approvalForm.status,
-        approveRemark: this.approvalForm.remark,
+        approveRemark: this.approvalForm.approveRemark,
         actualResignDate: this.approvalForm.actualResignDate
       }).then(res => {
-        this.$message.success('审核成功！');
         this.approvalDialogVisible = false;
         this.getMyResignList();
       });
@@ -272,7 +271,6 @@ export default {
         type: 'warning'
       }).then(() => {
         this.deleteRequest("/employee/resignation/" + row.id).then(res => {
-          this.$message.success('删除成功！');
           this.getMyResignList();
         });
       }).catch(() => {});
@@ -295,10 +293,7 @@ export default {
       this.getRequest('/employee/basic/findOne?id='+this.resign.empId).then(resp => {
         if (resp) {
           let emp = resp;
-          this.resign.oldPosId = emp.position.id;
-          this.resign.oldPosName = emp.position.name;
-          this.resign.oldJobLevelId = emp.jobLevel.id;
-          this.resign.oldJobLevelName = emp.jobLevel.name;
+          this.resign.empName = emp.name;
         }
       });
       this.dialogVisible = true;
@@ -313,7 +308,6 @@ export default {
             return;
           }
           this.postRequest("/employee/resignation/add", this.resign).then(res => {
-            this.$notify.success("离职申请提交成功！");
             this.dialogVisible = false;
             this.getMyResignList();
           });
