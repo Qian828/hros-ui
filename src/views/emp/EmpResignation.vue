@@ -7,7 +7,7 @@
     </div>
 
     <!-- 离职申请弹窗 -->
-    <el-dialog title="员工离职申请" center :visible.sync="dialogVisible" width="40%">
+    <el-dialog title="员工离职申请" center :visible.sync="dialogVisible" width="30%">
       <el-form :model="resign" :rules="rules" ref="resignForm" label-width="110px">
         <el-form-item label="申请人">
           <el-input v-model="resign.empName" disabled style="width: 180px" />
@@ -24,7 +24,7 @@
           <el-select
               v-model="resign.approverId"
               placeholder="请搜索并选择审批人"
-              style="width: 280px"
+              style="width: 180px"
               filterable
               clearable
           > <el-option

@@ -57,7 +57,7 @@
         title="新增交接记录"
         center
         :visible.sync="dialogVisible"
-        width="40%"
+        width="30%"
         :close-on-click-modal="false"
     >
       <el-form
@@ -70,7 +70,7 @@
           <el-select
               v-model="form.handoverBy"
               placeholder="请搜索并选择交接人"
-              style="width: 280px"
+              style="width: 180px"
               filterable
               clearable
           >
@@ -87,7 +87,7 @@
           <el-select
               v-model="form.receiveBy"
               placeholder="请搜索并选择接收人"
-              style="width: 280px"
+              style="width: 180px"
               filterable
               clearable
           >
@@ -104,7 +104,7 @@
           <el-date-picker
               v-model="form.handoverTime"
               type="datetime"
-              style="width: 100%"
+              style="width: 180px"
               value-format="yyyy-MM-dd HH:mm:ss"
               placeholder="请选择交接时间"
           />
@@ -115,7 +115,7 @@
               v-model="form.remark"
               type="textarea"
               rows="3"
-              style="width: 100%"
+              style="width:  350px"
               placeholder="请输入备注信息"
           />
         </el-form-item>
@@ -123,7 +123,6 @@
         <el-divider>交接物品</el-divider>
         <el-checkbox-group v-model="form.itemNames" class="checkbox-group">
           <el-checkbox label="工服" />
-          <el-checkbox label="发票本" />
           <el-checkbox label="对讲机" />
           <el-checkbox label="开酒器" />
           <el-checkbox label="宿舍钥匙" />
