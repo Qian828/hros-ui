@@ -4,7 +4,7 @@
     <div class="top-style">
       <div style="display: flex;align-items: center;justify-content: space-between;">
         <!-- 搜索区 -->
-        <div style="display: flex;align-items: center;">
+        <div style="display: flex;align-items: center;" v-if="hasSearchPermission">
           <el-input
               placeholder="请输入员工名进行搜索，可以直接回车搜索..."
               prefix-icon="el-icon-search"
@@ -25,7 +25,7 @@
 
         <!-- 考勤统计区（替换原来的死按钮） -->
         <div class="stat-box">
-          <span class="stat-item">本月排班：{{ scheduleCount }}天</span>
+          <span class="stat-item">{{ username }}本月排班：{{ scheduleCount }}天</span>
           <span class="stat-item sign">已签到：{{ signCount }}天</span>
           <span class="stat-item absent">缺勤：{{ absentCount }}天</span>
         </div>
@@ -50,10 +50,16 @@
           <div v-if="isSigned(data.day)" class="signed-tag">
             已签到
           </div>
+          <div
+                  v-if="!isFuture(data.day) && !isToday(data.day) && getShift(data.day) && !isSigned(data.day)"
+                  class="absent-tag"
+          >
+            缺勤
+          </div>
 
           <!-- 3. 签到按钮：仅 已排班+未签到+非未来日期 显示 -->
           <el-button
-              v-if="!isFuture(data.day) && getShift(data.day) && !isSigned(data.day)"
+              v-if="isCurrentUser && isToday(data.day) && getShift(data.day) && !isSigned(data.day)"
               type="primary"
             size="medium"
             icon="el-icon-check"
@@ -85,6 +91,12 @@
 .stat-box {
   display: flex;
   gap: 20px;
+}
+.absent-tag {
+  color: #722ed1;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 2px;
 }
 .sign-btn-improved {
   /* 强制覆盖样式，确保按钮够大 */
@@ -161,7 +173,7 @@
 /* 已签到标签 */
 .signed-tag {
   color: #f5222d;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: bold;
   margin-bottom: 2px;
 }
@@ -188,6 +200,7 @@ export default {
   data() {
     return {
       keyword: "",
+      username:"",
       currentMonth: new Date(), // 当前日历月份
       emps: [],
       total: 0,
@@ -198,12 +211,15 @@ export default {
       signDates: [], // 已签到日期数组
       // 统计数据
       scheduleCount: 0,
+      isCurrentUser: false, // 新增：是否是本人登录
       signCount: 0,
       absentCount: 0,
+      hasSearchPermission: false
     };
   },
   mounted() {
-    this.initEmpAttendance();
+    this.ifRole();
+   /* this.init();*/
   },
   methods: {
     // ======================== 日期基础判断 ========================
@@ -329,20 +345,77 @@ export default {
           if (resp) {
             this.$notify.success({ title: "签到成功", message: `${day} 签到完成！` });
             // 刷新数据
-            this.initEmpAttendance();
+            this.init();
           }
         });
       });
     },
+    ifRole(){
+      let url = "/system/hr/findRole?hrId="+ JSON.parse(window.sessionStorage.getItem("user")).id;
+      this.getRequest(url).then(resp => {
+        if (resp) {
+          if (resp[0].rid !== 34){
+            this.hasSearchPermission = true;
+          }
+          this.init();
+        }
+      });
+    },
+    clear(){
+      this.scheduleMap = {}        // 清空排班
+      this.signDates = []          // 清空签到
+      this.scheduleCount = 0       // 清空统计
+      this.signCount = 0
+      this.absentCount = 0
+      this.emps = []
+    },
+    init(){
+      this.scheduleMap = {}        // 清空排班
+      this.signDates = []          // 清空签到
+      this.scheduleCount = 0       // 清空统计
+      this.signCount = 0
+      this.absentCount = 0
+      this.emps = []
+      this.username = ""
 
-    // ======================== 初始化加载员工考勤数据 ========================
-    initEmpAttendance() {
-      let url = "/personnel/ec/init?page="+ this.page + '&size=' + this.size+"&id="+JSON.parse(window.sessionStorage.getItem("user")).employeeId;
-      /*if (this.keyword) url += `&name=`+this.keyword;*/
+      let user = JSON.parse(window.sessionStorage.getItem("user"));
+      this.username = user.username;
+      let url = "/personnel/ec/init?page="+ this.page + '&size=' + this.size+"&id="+(user.employeeId || '');
 
       this.getRequest(url).then(resp => {
         if (resp && resp.data) {
           this.emps = resp.data;
+
+          const currentEmployeeId = user.employeeId; // 当前登录人ID
+          const pageEmployeeId = this.emps[0].id;    // 页面显示的员工ID
+
+          // 只有【自己】才能看到签到按钮
+          this.isCurrentUser = currentEmployeeId === pageEmployeeId;
+          this.username = this.emps[0].name;
+          // 解析第一个员工的考勤数据（搜索后对应员工）
+          const workDateStr = this.emps[0].hr.workDates || "";
+          this.parseWorkDate(workDateStr);
+        }
+      });
+    },
+    // ======================== 初始化加载员工考勤数据 ========================
+    initEmpAttendance() {
+      this.scheduleMap = {}        // 清空排班
+      this.signDates = []          // 清空签到
+      this.scheduleCount = 0       // 清空统计
+      this.signCount = 0
+      this.absentCount = 0
+      this.emps = []
+      this.username = ""
+
+      let url = "/personnel/ec/init?page="+ this.page + '&size=' + this.size;
+      if (this.keyword) url += `&name=`+this.keyword;
+
+      this.getRequest(url).then(resp => {
+        if (resp && resp.data) {
+          this.emps = resp.data;
+
+          this.username = this.emps[0].name;
           // 解析第一个员工的考勤数据（搜索后对应员工）
           const workDateStr = this.emps[0].hr.workDates || "";
           this.parseWorkDate(workDateStr);
