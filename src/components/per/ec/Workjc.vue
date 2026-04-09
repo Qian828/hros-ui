@@ -70,14 +70,14 @@
           </el-button>
           <!-- 4. 未排班提示：历史日期+未排班 -->
           <div
-              v-if="!isFuture(data.day) && !getShift(data.day) && !isSigned(data.day)"
+              v-if="hasEmployee && !isFuture(data.day) && !getShift(data.day) && !isSigned(data.day)"
               class="no-schedule"
           >
             未排班
           </div>
 
           <!-- 5. 未来日期提示 -->
-          <div v-if="isFuture(data.day)" class="future-tag">
+          <div v-if="hasEmployee && isFuture(data.day)" class="future-tag">
             未到时间
           </div>
         </div>
@@ -205,6 +205,7 @@ export default {
       emps: [],
       total: 0,
       page: 1,
+      hasEmployee: false,
       size: 12,
       // 考勤核心数据
       scheduleMap: {}, // 排班映射 {日期: 班次}
@@ -249,7 +250,6 @@ export default {
       if (shift === "早") className += " morning";
       if (shift === "中") className += " afternoon";
       if (shift === "晚") className += " evening";
-      return className;
       return className;
     },
 
@@ -385,7 +385,7 @@ export default {
       this.getRequest(url).then(resp => {
         if (resp && resp.data) {
           this.emps = resp.data;
-
+          this.hasEmployee = true;
           const currentEmployeeId = user.employeeId; // 当前登录人ID
           const pageEmployeeId = this.emps[0].id;    // 页面显示的员工ID
 
@@ -414,7 +414,19 @@ export default {
       this.getRequest(url).then(resp => {
         if (resp && resp.data) {
           this.emps = resp.data;
-
+          if (!resp || !resp.data || resp.data.length === 0) {
+            this.scheduleMap = {}        // 清空排班
+            this.signDates = []          // 清空签到
+            this.scheduleCount = 0       // 清空统计
+            this.signCount = 0
+            this.absentCount = 0
+            this.emps = []
+            this.username = ""
+            this.hasEmployee = false
+            this.$message.warning("未查询到该员工信息");
+            return;
+          }
+          this.hasEmployee = true;
           this.username = this.emps[0].name;
           // 解析第一个员工的考勤数据（搜索后对应员工）
           const workDateStr = this.emps[0].hr.workDates || "";
